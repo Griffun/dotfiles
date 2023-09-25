@@ -1,0 +1,160 @@
+#!/bin/bash
+
+# Safety first
+mollyguard() {
+  echo "# $(c b)Molly-guard is active for:$(c) $1"
+  echo "# To remove: unalias $1"
+  return 1
+}
+
+
+# OS
+is-linux() { [[ "$OSTYPE" =~ linux  ]]; }
+is-mac()   { [[ "$OSTYPE" =~ darwin ]]; }
+is-win()   { [[ -n "$WSL_DISTRO_NAME" ]]; }
+
+
+# Is variable set (non-empty) or unset (empty)?
+is-set()   { [[ -n "$1" ]]; }
+is-unset() { [[ -z "$1" ]]; }
+
+
+# Does variable contain only whitespace characters?
+is-nonblank() { [[ "$1" = *[^[:space:]]* ]]; }
+is-blank() { ! is-nonblank "$1"; }
+
+
+# Who are we?
+is-root() { [[ $EUID -eq 0 ]]; }
+
+
+# Test whether an executable is installed, and print error message if it isn't.
+# Usage example:i
+#  ensure fzf || return 1
+ensure() { command -v "$1" &> /dev/null || { echo "Error: '$1' not installed."; return 1; }; }
+
+
+# Capitalise the first letter of a string
+capitalize () { echo $(echo "${1:0:1}" | tr '[:lower:]' '[:upper:]')"${1:1}";  }
+
+
+array-contains() {
+if [[ ! $1 || $1 =~ ^-h$ ]]; then cat <<- USAGE
+# Test if an array contains a specific element.
+# Usage example: array-contains "${myarr[@]}" foo
+USAGE
+return
+fi
+  local array=("${@:1:$#-1}")
+  local element=${@:$#}
+  for i in $(seq 0 $(("${#array[@]}"-1))); do
+    [[ "${array[$i]}" = "$element" ]] && return 0
+  done
+  return 1
+}
+
+
+# Uppercase and lowercase
+upper() { local input="${1:-$(cat)}" ; printf '%s\n' "${input^^}" ; }
+lower() { local input="${1:-$(cat)}" ; printf '%s\n' "${input,,}" ; }
+
+
+
+
+# List all the dotfiles or dot-directories in the specified directory
+__dotx() { find "$1" -name '.*' -maxdepth 1 -type "$2" | xargs -Ix basename x; }
+lsdotf() { local d=${1:-.}; __dotx "${d%/}" f; }
+lsdotd() { local d=${1:-.}; __dotx "${d%/}" d; }
+
+
+# Checks the depth level of our shell based on the ps tree above our pid ($$)
+# Also checks for ssh depth... mostly working.
+_depth() {
+  # This assumes we received our LC_SSH_DEPTH from the host we rode in on. 
+  # with something like: ssh -o SendEnv=LC_SSH_DEPTH
+  # ...and that the `AcceptEnv` sshd_config has `LC*`
+  if is-unset ${_ssh_depth};then
+    local tracepid=$$
+    while [ $tracepid -gt 1 ]; do
+      if ps -p $tracepid -o args | egrep -iq "sshd"; then
+        ((LC_SSH_DEPTH++))
+        break
+      fi
+
+      tracepid=$(ps -o ppid $tracepid | egrep -o '[0-9]+')
+    done
+
+    if [[ $LC_SSH_DEPTH -eq 0 ]];then
+      _ssh_depth='/'
+    else
+      export LC_SSH_DEPTH
+      _ssh_depth="$(printf '.%.0s' $(seq 1 $LC_SSH_DEPTH))"
+    fi
+
+    export _ssh_depth
+  fi
+
+  if is-unset ${_shell_depth};then
+    local tracepid=$$
+    __shell_depth=0
+
+    while [ $tracepid -gt 1 ];do
+      ps -o 'args' $tracepid | egrep -iq "bash" >/dev/null && ((__shell_depth+=1))
+      tracepid=$(ps -o ppid $tracepid | egrep -o '[0-9]+')
+    done
+
+    export __shell_depth
+    _shell_depth="$(printf '|%.0s' $(seq 1 $__shell_depth))"
+  fi
+}
+
+
+# Sets the title of the terminal window. Requires something xterm-like.
+settitle() {
+  if is-set $1;then
+    _depth # sets _shell_depth and _ssh_depth vars
+
+    local depth="${_shell_depth}"
+    local pre="${_ssh_depth}"
+    local info="$(whoami)"
+    local title="${@}"
+    local sep=" :: "
+
+    _settitle="${pre}${depth}${sep}${info}${sep}${title}"
+    _settitle_short=" ${title} ${depth}"
+  fi
+
+    if is-set $TMUX;then
+      echo -ne "\033]0;${_settitle_short}\a"
+    else
+      echo -ne "\033]0;${_settitle}\a"
+    fi
+
+    #is-set $TMUX && printf '\033k%s\033\\' "${_settitle_short}"
+
+}
+
+
+large-dirs() {
+if [[ ! $1 || $1 =~ ^-h$ ]]; then cat <<- USAGE
+# Print large directories in the current directory. The threshold for printing
+# directories can be specified either as 'g' or 'm':
+#   - 'g': print directories larger than 1 GB
+#   - 'm': print directories larger than 1 MB
+USAGE
+fi
+  threshold=${1:-g}
+  case "$threshold" in
+    g) pattern="G$(printf "\t")" ;;
+    m) pattern="M$(printf "\t")\|G$(printf "\t")" ;;
+  esac
+  sudo du -h | grep "$pattern"
+}
+
+
+# Get public IP address of local machine
+myip() { curl -s checkip.amazonaws.com; }
+
+
+# Show local ports that are currently in use
+ports() { lsof -i -P -n | grep LISTEN; }
