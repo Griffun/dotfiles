@@ -1,0 +1,58 @@
+#!/bin/bash
+# Prints a random line from the below heredoc block
+# 
+. ~/.files/bash/functions/colors || \
+  { echo "Failed to source color library." ; exit 1; }
+
+# Use curly single quotes (’) and double quotes (“ ”) in the heredoc below
+# to avoid parsing issues with standard quotes (' "). Because bash v3.
+
+greetings=$(cat <<EOF | grep -v "^$"
+Greetings and salutations!
+echo Christopher | sed "s/toph/BOFH/"
+Be kind // C-a [ , C-u
+    I know forever\nis a mighty long time, so\n where should we begin?
+If something annoys you, automate it.\nIf someone annoys you, remember the human.
+$(c magenta)Purple\t$(c black+)(magenta)\n$(c yellow)Yellow\n$(c red)Red$(c black+)\t(and)\n$(c blue)Blue$(c)
+"Embrace the unknown, for it is in the unexplored where innovation thrives."\n -- ChatGPT-4 / March 2023
+"Artificial intelligence is only as wise as the data it learns from; keep\n teaching it, and it will keep growing."\n -- ChatGPT-4 / March 2023
+"The journey of a thousand lines of code begins with a single keystroke."\n -- ChatGPT-4 / March 2023
+"When you think you’ve reached the limit of your abilities, remember\n that the only true limit is your imagination."\n -- ChatGPT-4 / March 2023
+"The world of technology is vast and ever-changing; let curiosity be your compass."\n -- ChatGPT-4 / March 2023
+"Great ideas often come from the most unexpected places; don’t be\n afraid to think outside the box."\n -- ChatGPT-4 / March 2023
+"Collaboration is the heart of innovation; together, we can achieve the extraordinary."\n -- ChatGPT-4 / March 2023
+"Never stop learning, for knowledge is the fuel that drives the engine of progress."\n -- ChatGPT-4 / March 2023
+ $(c b u)Linux kernel coding style$(c)\n\n "First off, I’d suggest printing out a copy of the GNU coding standards, and NOT read it.\n  Burn them, it’s a great symbolic gesture."\n\n  -- https://www.kernel.org/doc/html/v4.11/process/coding-style.html
+To be a leader, first you must be a disciple.
+ $(c b u)The Baader-Meinhof Phenomenon$(c)\n\n The false impression that something happens more frequently than it actually does.\n Suddenly, this new thing seems to appear more frequently, when in reality it’s only\n our awareness of it that has increased.
+ $(c b u)Occam’s Razor$(c)\n\n The simplest explanation is preferable to one that is more complex.\n The simple theories are easier to verify.\n The simple solutions are easier to execute.
+ $(c b u)Newton’s Flaming Laser Sword$(c)\n\n If something cannot be settled by experiment or observation, then it is not worthy of debate.
+ $(c b u)Hanlon’s Razor$(c)\n\n Never attribute to malice that which can be adequately explained by stupidity.
+ $(c b u)Hitchens’s Razor$(c)\n\n That which can be asserted without evidence can be dismissed without evidence.
+ $(c bg-white+)                    $(c)\n $(c bg-cyan+)                    $(c)\n $(c b red+ bg-white+)     ★  ★  ★  ★     $(c)\n $(c bg-cyan+)                    $(c)\n $(c bg-white+)                    $(c)
+$(c s)DevOps$(c) $(c s)DevNetSecOps$(c) Dev$(c b)Oops$(c)
+"Luck is what happens when preparation meets opportunity." -- Seneca\n\n  \`make luck\`
+ $(c b u)SpaceX’s Engineering Algorithm$(c)\n\n 1. Make the requirements less dumb.\n 2. Delete the part or process step.\n 3. Optimize.\n 4. Accelerate.\n 5. Automate.
+if __name__ == "__bane__":\n    print("No one cared about permissions until I set the umask.")
+$(c b)Addressing all stars in the universe, via:$(c)\n\n$(c b)IPv4:$(c)\n\n      $(c u)           4,294,967,296 IPs           $(c)\n       400,000,000,000,000,000,000,000 stars\n\n  = 1 address per 93,132,257,461,547.84 stars $(c d)(93T)$(c)\n\n$(c b)IPv6:$(c)\n\n      $(c u) 340,282,366,920,938,463,463,374,607,431,768,211,456 IPs $(c)\n                400,000,000,000,000,000,000,000 stars\n\n  = 850,705,917,302,346 addresses per star $(c d)(850T)$(c)
+$(c i)Don’t anthropomorphize the servers, Chris$(c)
+Move fast and fix things.
+$(c u)Brian Kernighan’s thoughts on the pipeline$(c)     $(c d)(author of \`awk\`)$(c)\n\n"That’s I think when we started to think consciously about tools, because then\n you could compose the things together, if you had made them so that they actually\n worked together. And that’s when people went back and consciously put into programs\n the idea that they read from a list of files, but if there were no files they read\n from the standard input so that they could be used in pipelines."\n\n Thank you, Doug McIlroy
+"What we know is a drop, what we don’t know is an ocean." -- Isaac Newton
+EOF
+)
+
+# Read our greetings into an array named... array.
+IFS=$'\n' read -rd '' -a array <<< "$greetings"
+
+if [[ $1 =~ ^(--)?last$ ]]; then
+  greeting="${array[${#array[@]} - 1]}"
+else
+  greeting="${array[$((RANDOM % ${#array[@]}))]}"
+fi
+
+# Greetings!
+echo;echo -e "${greeting}" | sed "s/^/$(c bg-black black)#$(c) /";echo
+
+
+
