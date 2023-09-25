@@ -1,0 +1,76 @@
+fawk() {
+  shopt -s extglob
+  local _debug=""
+
+  local output_sep=""
+  local field_sep=""
+
+  declare -a fields=()
+  declare -a files=()
+
+  declare -a _cmd=("awk")
+
+  _usage() {
+    cat << EOF
+Usage: fawk [-o output_sep] [field_sep] field1 [field2 ...] [file1] [file2 ...]
+
+A flexible wrapper around the awk command to easily print fields from file or piped input.
+
+Examples:
+  cat file | fawk 4
+  someproc | fawk / 2
+  fawk , 3 list.csv
+  fawk , 1 3 file1.csv file2.csv
+  fawk -o "," , 1 2 3 list.csv
+  someproc | fawk -o "," / 1 2
+
+EOF
+    return 1
+  }
+
+  # Check if there are enough arguments
+  [[ $# -lt 1 ]] && _usage
+  while (( $# > 0 )) ; do
+    case $1 in
+      -d)
+        _debug=1
+        ;;
+      -o) 
+        output_sep="${2?Missing argument for -o}"
+        shift
+        ;;
+      -o*)
+        output_sep=${1#-o}
+        ;;
+      *)
+        if [[ $1 =~ ^[0-9]+$ || $1 == "NF" ]]; then
+          fields+=("$1")
+        elif [[ ${#fields[@]} -eq 0 && -z "${field_sep}" ]];then
+          field_sep="$1"
+        elif [[ -f $1 ]];then
+          files+=("$1")
+        else
+          _usage
+        fi
+        ;;
+    esac
+    shift
+  done
+  [[ ${#fields[@]} -eq 0 ]] && _usage
+
+  [[ -n $field_sep  ]] && _cmd+=(-F"${field_sep}")
+  [[ -n $output_sep ]] && _cmd+=(-v OFS="${output_sep}")
+
+  local _fields
+  _fields=$(printf "\$%s," "${fields[@]}")  
+  _cmd+=("{print ${_fields%?}}")
+
+  [[ -n $files ]] && _cmd+=( "${files[@]}" )
+
+  # And we're finally there!
+  if [[ -n $_debug ]];then
+    echo "${_cmd[@]}"
+  else
+    "${_cmd[@]}"
+  fi
+}
