@@ -1,0 +1,129 @@
+c() {
+  if (echo $@ | grep -q -- -h );then
+    cat <<USAGE
+
+Usage: Easily apply various text attributes and
+       foreground/background colors to terminal 
+       output using ANSI escape sequences.
+
+Examples: 
+  echo "\$(c magenta)Purple (magenta)\$(c)"
+   or  "\$(c yellow)Yellow\$(c)"
+   ..  "\$(c red bg-blue)Red and blue (background)!\$(c)"
+
+#Foreground
+black        $(c black        )     p+=(30)$(c)
+red          $(c red          )     p+=(31)$(c)
+green        $(c green        )     p+=(32)$(c)
+yellow       $(c yellow       )     p+=(33)$(c)
+blue         $(c blue         )     p+=(34)$(c)
+magenta      $(c magenta      )     p+=(35)$(c)
+cyan         $(c cyan         )     p+=(36)$(c)
+white        $(c white        )     p+=(37)$(c)
+black+       $(c black+       )     p+=(90)$(c)
+red+         $(c red+         )     p+=(91)$(c)
+green+       $(c green+       )     p+=(92)$(c)
+yellow+      $(c yellow+      )     p+=(93)$(c)
+blue+        $(c blue+        )     p+=(94)$(c)
+magenta+     $(c magenta+     )     p+=(95)$(c)
+cyan+        $(c cyan+        )     p+=(96)$(c)
+white+       $(c white+       )     p+=(97)$(c)
+
+#Background
+bg-black     $(c bg-black     )     p+=(40)     $(c)
+bg-red       $(c bg-red       )     p+=(41)     $(c)
+bg-green     $(c bg-green     )     p+=(42)     $(c)
+bg-yellow    $(c bg-yellow    )     p+=(43)     $(c)
+bg-blue      $(c bg-blue      )     p+=(44)     $(c)
+bg-magenta   $(c bg-magenta   )     p+=(45)     $(c)
+bg-cyan      $(c bg-cyan      )     p+=(46)     $(c)
+bg-white     $(c bg-white     )     p+=(47)     $(c)
+bg-black+    $(c bg-black+    )     p+=(100)    $(c)
+bg-red+      $(c bg-red+      )     p+=(101)    $(c)
+bg-green+    $(c bg-green+    )     p+=(102)    $(c)
+bg-yellow+   $(c bg-yellow+   )     p+=(103)    $(c)
+bg-blue+     $(c bg-blue+     )     p+=(104)    $(c)
+bg-magenta+  $(c bg-magenta+  )     p+=(105)    $(c)
+bg-cyan+     $(c bg-cyan+     )     p+=(106)    $(c)
+bg-white+    $(c bg-white+    )     p+=(107)    $(c)
+
+#Modifiers
+#Reset         x (or just \$(c))  $(c x)p+=(0)$(c)
+#Bold          b                 $(c b)p+=(1)$(c)
+#Dim           d                 $(c d)p+=(2)$(c)
+#Italic        i                 $(c i)p+=(3)$(c)
+#Underlined    u                 $(c u)p+=(4)$(c)
+#Strikethrough s                 $(c s)p+=(9)$(c)
+
+USAGE
+
+    return
+  fi
+
+  if [ "$1" == "--ps1" ]; then
+    local _for_ps1=1
+    shift
+  fi
+
+  local p
+  for a in "$@"; do
+    # Parse color
+    case "$a" in
+      # Foreground colors
+      black)    p+=(30); continue ;;
+      red)      p+=(31); continue ;;
+      green)    p+=(32); continue ;;
+      yellow)   p+=(33); continue ;;
+      blue)     p+=(34); continue ;;
+      magenta)  p+=(35); continue ;;
+      cyan)     p+=(36); continue ;;
+      white)    p+=(37); continue ;;
+      black+)   p+=(90); continue ;;
+      red+)     p+=(91); continue ;;
+      green+)   p+=(92); continue ;;
+      yellow+)  p+=(93); continue ;;
+      blue+)    p+=(94); continue ;;
+      magenta+) p+=(95); continue ;;
+      cyan+)    p+=(96); continue ;;
+      white+)   p+=(97); continue ;;
+
+      # Background colors
+      bg-black)    p+=(40); continue ;;
+      bg-red)      p+=(41); continue ;;
+      bg-green)    p+=(42); continue ;;
+      bg-yellow)   p+=(43); continue ;;
+      bg-blue)     p+=(44); continue ;;
+      bg-magenta)  p+=(45); continue ;;
+      bg-cyan)     p+=(46); continue ;;
+      bg-white)    p+=(47); continue ;;
+      bg-black+)   p+=(100); continue ;;
+      bg-red+)     p+=(101); continue ;;
+      bg-green+)   p+=(102); continue ;;
+      bg-yellow+)  p+=(103); continue ;;
+      bg-blue+)    p+=(104); continue ;;
+      bg-magenta+) p+=(105); continue ;;
+      bg-cyan+)    p+=(106); continue ;;
+      bg-white+)   p+=(107); continue ;;
+    esac
+    # Parse modifiers (x, b, i, u, d)
+    a=($(grep -o . <<<"$a"))
+    for i in "${a[@]}"; do
+      case "$i" in
+        x) p+=(0) ;;  # Reset
+        b) p+=(1) ;;  # Bold
+        d) p+=(2) ;;  # Dim
+        i) p+=(3) ;;  # Italic
+        u) p+=(4) ;;  # Underlined
+        s) p+=(9) ;;  # Strikethrough
+      esac
+    done
+  done
+  # Print escape sequence
+  
+  if [[ "$_for_ps1" -eq 1 ]]; then
+    printf "\\\[\e[$(tr ' ' ';' <<<"${p[@]}")m\\\]"
+  else
+    printf "\e[$(tr ' ' ';' <<<"${p[@]}")m"
+  fi
+}
+
