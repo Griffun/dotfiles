@@ -1,0 +1,303 @@
+#!/bin/bash
+
+read -r -d '' BANNER <<'EOF'
+
+██████╗  ██████╗ ████████╗       ███████╗██╗██╗     ███████╗███████╗
+██╔══██╗██╔═══██╗╚══██╔══╝       ██╔════╝██║██║     ██╔════╝██╔════╝
+██║  ██║██║   ██║   ██║          █████╗  ██║██║     █████╗  ███████╗
+██║  ██║██║   ██║   ██║          ██╔══╝  ██║██║     ██╔══╝  ╚════██║
+██████╔╝╚██████╔╝   ██║       ██╗██║     ██║███████╗███████╗███████║
+╚═════╝  ╚═════╝    ╚═╝       ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝╚══════╝
+
+EOF
+
+declare -a bash_files
+declare -a vim_files
+declare -a nvim_files
+declare -a tmux_files
+
+SCRIPT_LOC="$(realpath "$0")"
+SCRIPT_DIR="$(dirname "${SCRIPT_LOC}")"
+BACKUP_DIR="${SCRIPT_DIR}/.restore"
+
+# Logging, either as args, or from stdin
+dl="${SCRIPT_DIR}/.restore/dot.log"
+log() { echo "[$(date "+%Y-%m-%d %H:%M:%S")] :: ${*:-$(</dev/stdin)}" | tee -a ${dl}; }
+log_err() { >&2 log "ERROR: ${*:-$(</dev/stdin)}"; }
+err_exit() { log_err "$*" ; exit 1 ; }
+
+# Current supported configurations
+available_configs="bash vim nvim tmux"
+
+# Source (git dir) / destination (symlink)
+bash_files=(
+  "${SCRIPT_DIR}/bash/bash_profile:::~/.bash_profile"
+  "${SCRIPT_DIR}/bash/bashrc:::~/.bashrc"
+  "${SCRIPT_DIR}/bash/inputrc:::~/.inputrc"
+)
+vim_files=(
+  "${SCRIPT_DIR}/vim/vimrc:::~/.vimrc"
+)
+nvim_files=(
+  "${SCRIPT_DIR}/nvim/init.lua:::~/.config/nvim/init.lua"
+)
+tmux_files=(
+  "${SCRIPT_DIR}/tmux/tmux.conf:::~/.tmux.conf"
+)
+
+
+# Various prechecks -- easy to adapt in the future
+precheck() {
+  if [[ -z "${SCRIPT_LOC}" ]];then
+    err_exit "Could not determine script location: ${SCRIPT_LOC}"
+  elif [[ ! -w "${SCRIPT_DIR}" ]];then
+    err_exit "Unable to write to dir ${SCRIPT_DIR}"
+  elif [[ "${SCRIPT_DIR}" != *"/.files" && "${SCRIPT_DIR}" != *"/dotfiles" ]];then
+    err_exit "$0 at ${SCRIPT_DIR} -- Bad location. Re-clone to dotfiles and retry."
+  fi
+}
+
+
+# Ensure that we can run
+ensure() { command -v "$1" &> /dev/null || \
+    err_exit "Required command $1 is missing. Exiting."; }
+for i in realpath dirname git sed; do ensure $i; done
+precheck
+
+
+usage() { cat << EOF
+
+$BANNER
+
+Usage:
+  ${0##*/} [command] <options>
+
+Commands
+  install            < all / ${available_configs// / / } >
+  restore            < all / ${available_configs// / / } >
+
+  check-update       Checks for updates in the current branch
+  pull | update      Updates dotfiles with 'git pull'
+  diff               Displays dotfile differences from git
+  grep               Executes 'git grep' against dotfiles
+  list | ls          List files in git/repo tree
+  edit <arg>         Edit file matching <arg>
+
+  --help | -h        Display this help message.
+
+EOF
+}
+
+
+# If just cloned, move to ~/.files dir
+if [[ "${SCRIPT_DIR##*/}" == "dotfiles" ]];then
+  log "Doing initial dotfiles setup."
+  cd "${SCRIPT_DIR}" && cd .. || \
+    err_exit "Failed to cd above ${SCRIPT_DIR}"
+  if [[ -d ~/.files ]];then
+    err_exit "~/.files dir already exists, remove/review/retry. Exiting."
+  else
+    if [[ "$1" == "-f" ]];then
+      shift
+    else
+      echo;read -t 120 -p 'Press enter to move dotfiles to ~/.files > ' || \
+        err_exit "Timeout waiting for initial setup confirmation."
+    fi
+    mv dotfiles ~/.files
+    cd ~/.files
+    exec ./dot ${*:-install}
+    exit
+  fi
+fi
+
+
+configure() {
+  if [[ "$1" == "install" || "$1" == "restore" ]];then
+    local action=$1
+    shift
+  else
+    log_err "Invalid args for configure: $*"
+    usage
+    exit 1
+  fi
+
+  while [[ $# -gt 0 ]];do
+    case "$1" in
+      vim)
+        log " -- ${action%e}ing $1"
+        ${action} "${vim_files[@]}"
+        shift
+        ;;
+      nvim)
+        log " -- ${action%e}ing $1"
+        ${action} "${nvim_files[@]}"
+        shift
+        ;;
+      bash)
+        log " -- ${action%e}ing $1"
+        ${action} "${bash_files[@]}"
+        shift
+        ;;
+      tmux)
+        log " -- ${action%e}ing $1"
+        ${action} "${tmux_files[@]}"
+        shift
+        ;;
+      all)
+        log "Doing ${action} on all: ${available_configs}"
+        configure ${action} ${available_configs}
+        exit
+        ;;
+      *)
+        log_err "Unsupported config: $1. Supports: ${available_configs}"
+        shift
+        ;;
+    esac
+  done
+}
+
+
+do_install() {
+  local src="$1"
+  local dest="${2/#\~/$HOME}" # the tilde can be problematic
+  local backup_file="${BACKUP_DIR}/${dest##*/}"
+
+  if [[ -L "${dest}" ]];then
+    log "Found symlink at ${dest} pointing to $(realpath "${dest}"). Logging, but won't backup."
+  elif [[ -f "${dest}" ]];then
+    mv -f "${dest}" "${backup_file}" 2>/dev/null && \
+      log "Moved ${dest} to ${BACKUP_DIR}/" || \
+      log_err "Failed to backup ${dest} to ${BACKUP_DIR}/"
+  else
+    log "No original to backup for: ${dest}"
+  fi
+
+  if [[ ! -d "${dest%/*}" ]];then
+    log "Making dir: ${dest%/*}"
+    mkdir -p "${dest%/*}" || { log_err "Failed to mkdir ${dest%/*}"; return; }
+  fi
+
+  ln -fs "${src}" "${dest}" && \
+    log "Symlinked ${src} to ${dest}" || \
+    log_err "Failed to symlink ${src} to ${dest}"
+}
+
+do_restore() {
+  local dest="$1"
+  local backup_file="${BACKUP_DIR}/${dest##*/}"
+
+  if [[ -f "$backup_file" ]];then
+    mv -f "$backup_file" "$dest" 2>/dev/null && \
+      log "Restored $backup_file to $dest" || \
+      log_err "Failed to restore $backup_file to $dest"
+  else
+    log "No backup found for $dest. Skipping."
+  fi
+}
+
+
+install() {
+  files=("$@")
+  for cfg in "${files[@]}"; do
+    local src="${cfg%%:::*}"
+    local dest="${cfg##*:::}"
+
+    do_install "${src}" "${dest}"
+  done
+}
+
+restore() {
+  files=("$@")
+  for cfg in "${files}"; do
+    local dest="${cfg##*:::}"
+
+    do_restore "${dest}"
+  done
+}
+
+
+main() {
+  local configs
+  local cmd="$1"
+  shift
+
+  case $cmd in
+    -h|--help|"")
+      usage
+      exit 0
+      ;;
+    list|ls)
+      $0 edit
+      exit
+      ;;
+    edit|e)
+      cd "${SCRIPT_DIR}"
+
+      if [[ -z $1 ]];then
+        echo "Available files: "
+        git ls-files | sed "s/^/  /g"
+      else
+        local file="$(git ls-files | grep -w "$1" || echo "Bad result -- $1")"
+
+        if [[ $(wc -l <<< "${file}") -eq 1 ]] && [[ -f "${file}" ]];then
+          "${EDITOR:-vi}" "${file}"
+        else
+          echo "Ambiguous result: "
+          echo "${file}" | sed "s/^/  /g"
+          exit 1
+        fi
+      fi
+
+      exit
+      ;;
+    grep)
+      cd "${SCRIPT_DIR}" && git grep $* || \
+        err_exit "${0##*/} $* -- git grep returned exit code: $?"
+      exit
+      ;;
+    diff)
+      cd "${SCRIPT_DIR}" && git diff || \
+        err_exit "${0##*/} $* -- git diff returned exit code: $?"
+      exit
+      ;;
+    pull|update|up)
+      cd "${SCRIPT_DIR}" && git pull || \
+        err_exit "${0##*/} $* -- git pull returned exit code: $?"
+      exit
+      ;;
+    check|check-update)
+      cd "${SCRIPT_DIR}" && \
+        git remote update >/dev/null && git status -uno | \
+        grep -i 'your branch is behind' | log && exit
+      exit 1
+      ;;
+    install)
+      if [[ -z $* ]];then
+        echo -e "\nAvailable configs: ${available_configs}"
+        read -t 120 -p "Enter config(s) to install (or all): " configs || \
+          err_exit "Timeout waiting for ${cmd} options."
+      fi
+
+      configure install $* ${configs}
+      exit
+      ;;
+    restore)
+      if [[ -z $* ]];then
+        echo -e "\nAvailable configs: ${available_configs}"
+        read -t 120 -p "Enter config(s) to restore (or all): " configs || \
+          err_exit "Timeout waiting for ${cmd} options."
+      fi
+
+      configure restore $* ${configs}
+      exit
+      ;;
+    *)
+      log_err "Unknown command: $1"
+      usage
+      exit 1
+      ;;
+    esac
+}
+
+# Do(t) it!
+main $*
