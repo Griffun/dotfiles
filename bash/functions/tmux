@@ -1,0 +1,67 @@
+# tmux specific functions.
+#
+
+export TMUX
+
+# Input multiplexer for tmux. Spawns 'n' number of panes and
+# enables simultaneous input across all. 
+# 
+# Usage:   multi [ command ] <list> <of> <hosts-or-args>
+# Example: multi ssh qa00{10..20}d
+multi() {
+  local s
+  cmd=$1
+  shift
+
+  if [[ $2 == "sudo" ]];then
+    s="sudo"
+    shift
+  fi
+
+  declare -a args=("$@")
+  window=$(tmux display-message -p '#S:#I')
+
+  while [[ $cmd == *"ssh"* ]]; do
+    pre_check="$(echo "${args[@]}" | tr ' ' '\n' | sed -e 's/^.*@//g' | \
+                 xargs nmap -p 22 -PN -oG - | grep Port | grep -v open)"
+    test "${pre_check}x" != "x" && (clear; echo "$pre_check") || break
+
+    sleep 2
+  done
+
+  # My tmux panes start at 1.
+  tmux send-keys -t ${window}.1 "$cmd $s ${args[0]}"
+  for ((pane = 2; pane <= ${#args[@]}; pane++)); do
+    tmux splitw -h -t $window
+    tmux send-keys -t ${window}.${pane} "$cmd $s ${args[@]:pane-1:1}"
+    tmux select-layout -t $window tiled > /dev/null
+  done
+
+  tmux set-window-option -t $window synchronize-panes on > /dev/null
+  tmux set-window-option -t $window pane-active-border-style fg=red > /dev/null
+  tmux set-window-option -t $window pane-border-style fg=yellow > /dev/null
+
+  tmux send-keys -t ${window}.1 Enter
+}
+
+
+# Create tmux pane in current working directory
+tmux-split-window-same-dir() {
+  tmux split-window $1
+  tmux send-keys "cd $PWD; clear" Enter
+}
+
+
+# Create tmux window in current working directory
+tmux-new-window-same-dir() {
+  tmux new-window
+  tmux send-keys "cd $PWD; clear" Enter
+}
+
+# Checks for running tmux and tries to attach. If this fails, start a new one
+starttmux() {
+  if [ -z "${TMUX}" ]; then
+    tmux -2u attach -t default || tmux -2u new -s default
+  fi
+}
+
