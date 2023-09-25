@@ -1,0 +1,17 @@
+# Install with:
+#     ln -s ~/.files/bash/bash_profile ~/.bash_profile
+#     ln -s ~/.files/bash/bashrc ~/.bashrc
+#
+# A really boring bash_profile
+# This will also init bashrc, so any other bash rc/config files can be removed.
+#
+
+# Only load our bashrc (and everything that comes with it) if we are running
+# in interactive mode. 
+if [[ $- = *i* ]];then
+  # Source the system bashrc first
+  [[ -f /etc/bash.bashrc ]] && . /etc/bash.bashrc
+
+  # Then source ours
+  . ~/.bashrc
+fi
