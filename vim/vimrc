@@ -1,0 +1,61 @@
+" Install with: ln -s ~/.files/vim/vimrc ~/.vimrc
+
+nnoremap ; :
+vnoremap ; :
+inoremap <F1> <nop>
+nnoremap <F1> <nop>
+vnoremap <F1> <nop>
+cnoreabbrev W w
+cnoreabbrev Q q
+
+set background=dark
+
+set t_Co=256
+syntax on
+
+set laststatus=2
+set showcmd
+set ruler
+set number
+nmap <C-l> :set number! number?<cr> " Toggle line number
+
+" AutoComplete filenames
+filetype plugin on
+set wildmenu
+set wildignore=*.o,*.hi,*.pyc
+
+" Searching 
+set hlsearch
+set incsearch
+set ignorecase
+set smartcase
+
+" Tabs and indents
+" -- ON --
+filetype indent on
+set expandtab     " Swap tab char with spaces
+set shiftwidth=2  " When indenting use x spaces
+set autoindent    " Keep indentation from previous line
+set smartindent   " Mostly does the right thing
+"set cindent      " Stricter rules for C
+
+" -- OFF --
+"filetype indent off
+"filetype plugin indent off
+"set noautoindent
+"set nocindent
+"set nosmartindent
+"set indentexpr=
+
+
+" Highlight trailing whitespace
+"highlight ExtraWhitespace ctermbg=red ctermfg=white guibg=red
+"autocmd BufWinEnter * match ExtraWhitespace /\s\+$/
+"autocmd InsertLeave * match ExtraWhitespace /\s\+$/
+
+
+"let python_highlight_all=1
+
+" This unsets the last search pattern register when return is hit
+nnoremap <CR> :noh<CR><CR>
+
