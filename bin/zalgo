@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+import random
+import sys
+
+def random_zalgo_chars(position="up"):
+    # Combining characters for the effect
+    up_chars = ["\u0300", "\u0301", "\u0302", "\u0303", "\u0304"]
+    down_chars = ["\u0315", "\u0316", "\u0317", "\u0318", "\u0319"]
+
+    chars = up_chars if position == "up" else down_chars
+    return ''.join(random.choice(chars) for _ in range(random.randint(1, 5)))
+
+def zalgoify(text):
+    zalgo_text = ''
+    for char in text:
+        zalgo_text += random_zalgo_chars("up")
+        zalgo_text += char
+        zalgo_text += random_zalgo_chars("down")
+    return zalgo_text
+
+if __name__ == "__main__":
+    # If there are command line arguments, concatenate them into one string
+    if len(sys.argv) > 1:
+        text = ' '.join(sys.argv[1:])
+    elif not sys.stdin.isatty():
+        # Check if there's input from stdin (i.e., piping or redirection)
+        text = sys.stdin.read().strip()
+    else:
+        # If no input found, then ask the user
+        text = input("Enter your text: ")
+
+    print(zalgoify(text))
+
