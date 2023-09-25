@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# Function to draw the progress bar
+draw_progress_bar() {
+  local width="$1"
+  local percentage="$2"
+
+  local filled=$((width * percentage / 100))
+  local empty=$((width - filled))
+
+  printf -v bar "[%s%s]" "$(printf "%${filled}s" | tr ' ' '=')" "$(printf "%${empty}s" | tr ' ' ' ')"
+
+  echo "$bar"
+}
+
+# Define workday start and end times (24-hour format)
+workday_start="08:00"
+workday_end="17:00"
+
+# Calculate the progress of the day
+now_seconds=$(date +%s)
+if [[ "$OSTYPE" =~ darwin ]];then # Mac
+  midnight_seconds=$(date -jf "%Y%m%d%H%M%S" "$(date +%Y%m%d)000000" +%s)
+  next_midnight_seconds=$(date -v +1d -jf "%Y%m%d%H%M%S" "$(date +%Y%m%d)000000" +%s)
+    workday_start_seconds=$(date -jf "%Y%m%d%H%M" "$(date +%Y%m%d)${workday_start//:}" +%s)
+  workday_end_seconds=$(date -jf "%Y%m%d%H%M" "$(date +%Y%m%d)${workday_end//:}" +%s)
+else
+  midnight_seconds=$(date -d "$(date +%Y%m%d)" +%s)
+  next_midnight_seconds=$(date -d "$(date +%Y%m%d) + 1 day" +%s)
+  workday_start_seconds=$(date -d "$(date +%Y%m%d) $workday_start" +%s)
+  workday_end_seconds=$(date -d "$(date +%Y%m%d) $workday_end" +%s)
+fi
+
+elapsed_seconds=$((now_seconds - midnight_seconds))
+total_seconds=$((next_midnight_seconds - midnight_seconds))
+
+percentage_passed=$((elapsed_seconds * 100 / total_seconds))
+
+# Calculate the progress of the workday
+if [ $now_seconds -lt $workday_start_seconds ]; then
+  workday_elapsed_seconds=0
+  workday_total_seconds=$((workday_end_seconds - workday_start_seconds))
+elif [ $now_seconds -gt $workday_end_seconds ]; then
+  workday_elapsed_seconds=$((workday_end_seconds - workday_start_seconds))
+  workday_total_seconds=$((workday_end_seconds - workday_start_seconds))
+else
+  workday_elapsed_seconds=$((now_seconds - workday_start_seconds))
+  workday_total_seconds=$((workday_end_seconds - workday_start_seconds))
+fi
+
+workday_percentage_passed=$((workday_elapsed_seconds * 100 / workday_total_seconds))
+
+# Set the progress bar width
+bar_width=40
+
+# Display the progress bars
+echo -n "Work: "
+draw_progress_bar "$bar_width" "$workday_percentage_passed"
+echo -n "Day:  "
+draw_progress_bar "$bar_width" "$percentage_passed"
