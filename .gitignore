@@ -1,0 +1,7 @@
+.restore/*
+!.restore/original_configs_end_up_here
+
+iterm/*
+sync_to_github.sh
+
+todo.md
