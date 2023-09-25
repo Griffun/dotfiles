@@ -1,0 +1,163 @@
+# History options
+export HISTSIZE=10000
+export HISTFILESIZE=10000
+export HISTTIMEFORMAT="%Y-%m-%dT%H:%M:%S "
+export HISTCONTROL=ignoreboth
+shopt -s cmdhist
+shopt -s histappend
+
+export HOME
+PATH=~/.files/bin:~/.files/bash/scripts:$PATH
+
+export EDITOR=vi
+alias vi='vim'
+set -o vi
+
+
+# Stop if not an interactive shell
+if [[ $- != *i* ]];then
+  return
+fi
+
+
+# Source a file if it exists
+s() { [[ -f "$1" ]] && . "$1"; }
+
+# Source all of our functions.
+s "${HOME}/.files/bash/common"
+s "${HOME}/.files/bash/functions/colors"
+s "${HOME}/.files/bash/functions/git/git-prompt.sh"
+
+# And anything in the 'inc' dir
+for func in ${HOME}/.files/bash/functions/inc/*;do
+  s $func
+done
+unset func
+
+if is-mac; then
+  s "${HOME}/.files/bash/functions/mac"
+
+  # Suppresses lame apple zsh recommendations
+  export BASH_SILENCE_DEPRECATION_WARNING=1
+
+  export LSCOLORS='ExGxBxDxCxegedabagacad'
+  alias ls='ls -Gh'
+
+  export GREP_COLOR='mt=01;31:sl=:cx=:fn=35:ln=32:bn=32:se=36'
+  alias grep='grep --color=auto'
+  alias fgrep='fgrep --color=auto'
+  alias egrep='egrep --color=auto'
+  alias md5sum='md5'
+
+  #alias tftpstart="sudo launchctl load -F /System/Library/LaunchDaemons/tftp.plist"
+  #alias tftpstop="sudo launchctl unload -F /System/Library/LaunchDaemons/tftp.plist"
+
+  # Recursively delete all .DS_Store files in the current directory
+  alias rmds='find . -type f \( -name .DS_Store -or -name ._.DS_Store \) -delete'
+fi
+
+if is-win; then
+  s "${HOME}/.files/bash/functions/win"
+fi
+
+
+if is-linux; then
+  s "${HOME}/.files/bash/functions/linux"
+
+  export LS_COLORS='di=1;34:ln=1;36:so=1;31:pi=1;33:ex=1;32:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30'
+  alias ls='ls --color=auto -h'
+
+  export GREP_COLORS='mt=01;31:sl=:cx=:fn=35:ln=32:bn=32:se=36'
+  alias grep='grep --color=auto'
+  alias fgrep='fgrep --color=auto'
+  alias egrep='egrep --color=auto'
+fi
+
+
+# Aliases
+alias rm='rm -i'
+alias ssh-key='ssh -o PreferredAuthentications=publickey'
+alias ssh-pass='ssh -o PreferredAuthentications=password'
+
+if is-root;then
+  is-root && alias sume='su - $OUSER'
+else
+  alias suroot='sudo OUSER=$USER TMUX=$TMUX HOME=$HOME bash --rcfile $HOME/.bashrc'
+fi
+
+
+# local env files
+s ~/.cargo/env
+s ~/.local/env
+
+
+# Setting TERM var for terminal colors
+if [[ $TERM =~ screen ]];then
+  export TERM=screen-256color
+elif [[ $TERM =~ xterm ]];then
+  export TERM=xterm-256color
+else
+  echo 'Warning: Could not determine TERM!'
+  echo "Currently set to: $TERM"
+  echo "Colors may not work."
+fi
+
+
+# tmux specific
+s "${HOME}/.files/bash/completion/tmux"
+if is-set $TMUX;then
+  s "${HOME}/.files/bash/functions/tmux"
+fi
+
+
+# Done sourcing
+alias s='false'
+
+
+# Prompt changes depending on user and os.
+__set-prompt() {
+  local rc=$?
+  _c() { c --ps1 x $* ; }
+
+  if is-unset $_ps1;then
+    if is-root;then
+      _ps1="$(_c bg-green white+ b)[$(_c bg-black red b)\u$(_c bg-green white+ b)@\h$(_c bg-green green):$(_c bg-green white+)\w]# $(_c)"
+    elif is-win;then #gross
+      _ps1="$(_c bg-magenta+ black)[$(_c bg-magenta black)\u$(_c bg-magenta+ black)@\h$(_c bg-magenta+ magenta+):$(_c bg-magenta+ black)\w]\$ $(_c)"
+    elif is-linux;then
+      _ps1="$(_c bg-black+ white)[$(_c bg-white black)\u$(_c bg-black+ white)@\h$(_c bg-black+ black+):$(_c bg-black+ white)\w]\$ $(_c)"
+    elif is-mac;then
+      _ps1="$(_c bg-white+ black+)[$(_c bg-white black)\u$(_c bg-white+ black+)@\h$(_c bg-white+ white+):$(_c bg-white+ black+)\w]\$ $(_c)"
+    fi
+  fi
+
+  PS1="$(_c;__git_ps1 "(%s) ")${_ps1}"
+
+  # Add return code if not 0
+  [[ "$rc" -ne 0 ]] && PS1="$(_c x red+)${rc} ${PS1}"
+}
+
+
+settitle "Login at $(date)"
+PROMPT_COMMAND='__set-prompt;settitle'
+
+
+# Molly guards
+if declare -f mollyguard > /dev/null;then
+  for cmd in reboot shutdown ifup ifdown init hostname halt dd parted dhclient service systemctl grub2-mkconfig;do
+    alias ${cmd}="mollyguard ${cmd}"
+  done
+  unset cmd
+else
+  echo 'Warning: mollyguard function is not defined!'
+fi
+
+
+is-unset $LC_SSH_DEPTH && LC_SSH_DEPTH=0
+export LC_SSH_DEPTH
+
+export COLUMNS=${COLUMNS:-$(tput cols 2>/dev/null)}
+export LINES=${LINES:-$(tput lines 2>/dev/null)}
+
+is-set $TMUX && settitle "$(date "+%F %I:%m %p" | awk '{print tolower($0)}')"
+${HOME}/.files/bash/scripts/greetings
