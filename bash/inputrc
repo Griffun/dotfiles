@@ -1,0 +1,38 @@
+# Install with:
+#     ln -s ~/.files/bash/inputrc ~/.inputrc
+#
+# Consult the man page for more info about the GNU Readline library:
+#   man readline
+
+# Include the global Readline configuration file
+$include /etc/inputrc
+
+# Display common prefix before cycling through completions
+set menu-complete-display-prefix On
+
+# Bind Up arrow to search history backward based on input
+"\e[A": history-search-backward
+
+# Bind Down arrow to search history forward based on input
+"\e[B": history-search-forward
+
+# Enable colored file type indicators for completion
+set colored-stats On
+
+# Make tab completion case-insensitive
+set completion-ignore-case On
+
+# Set minimum prefix length for displaying completions
+set completion-prefix-display-length 3
+
+# Mark symlinked directories with "@" during completion
+set mark-symlinked-directories On
+
+# Display all completions immediately if input is ambiguous
+set show-all-if-ambiguous On
+
+# Display all completions if input is unmodified
+set show-all-if-unmodified On
+
+# Enable file type indicators during tab completion
+set visible-stats On
