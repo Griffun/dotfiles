@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Opens a "todo" file, either in the top of a git dir, or in the homedir.
+function todo {
+  if git rev-parse --is-inside-work-tree; then
+    local top="$(git rev-parse --show-toplevel)"
+    local header="# ${top##*/} todo\n\n - [ ] "
+    local todofile="${top}/todo.md"
+  else
+    local header="# todo\n\n - [ ] "
+    local todofile="~/todo.md"
+  fi
+
+  if [[ ! -f "${todofile}" ]]; then
+    echo -e "${header}" | \
+      "${EDITOR:-vi}" - -c ":file ${todofile}" -c "normal G$"
+   else
+      "${EDITOR:-vi}" "${todofile}"
+  fi
+}
