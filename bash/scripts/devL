@@ -1,0 +1,99 @@
+#!/bin/bash
+
+set -e
+
+usage() {
+  echo "Usage: $0 [-s] file [commands]"
+  echo "  -s: Safe mode that requires Enter before executing"
+  echo "  file: Some file where we'll watch for changes"
+  echo "  commands: The commands to pass to the file when executing"
+  exit 1
+}
+
+on_exit() {
+  echo -e "\nExiting. Processed $version_count version(s) of '$file'.\n\nHappy devL-oping!"
+  exit 0
+}
+
+trap on_exit SIGINT
+
+get_modification_timestamp() {
+  if [[ "$(uname)" == "Darwin" ]]; then
+    stat -f %m "$1"
+  else
+    stat -c %Y "$1"
+  fi
+}
+
+get_full_path() {
+  local target="$1"
+  
+  if [[ -e "$target" ]]; then
+    echo "$(cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+  fi
+}
+
+file=""
+safe_mode=false
+version_count=0
+
+while (( "$#" )); do
+  case "$1" in
+    -s)
+      safe_mode=true
+      shift
+      ;;
+    -*)
+      usage
+      ;;
+    *)
+      if [[ -z "$file" ]]; then
+        file="$1"
+        shift
+      else
+        break
+      fi
+      ;;
+  esac
+done
+
+if [[ -z "$file" ]]; then
+  usage
+fi
+
+file_path="$(get_full_path "$file")"
+
+if [[ -z "$file_path" ]]; then
+  echo "Error: '$file' not found or not executable in PATH."
+  exit 1
+fi
+
+last_modified=$(get_modification_timestamp "$file_path")
+
+# Monitor the file for changes and execute the commands
+while true; do
+  current_modified=$(get_modification_timestamp "$file_path")
+  if [[ "$current_modified" -gt "$last_modified" ]]; then
+    version_count=$((version_count + 1))
+    echo -n "Changes detected in '$file'. "
+
+    if [[ "$safe_mode" == "true" ]]; then
+      echo -n "Press Enter to execute, or Ctrl+C to exit. "
+      read -p ""
+    else 
+      echo -e "Executing '$file' with arguments: '$*' \n"
+    fi
+
+    start_time=$(date +%s)
+    "$file_path" "$@"
+    end_time=$(date +%s)
+
+    duration=$((end_time - start_time))
+    echo -e "\nFinished executing '$file'. Execution time: ${duration}s \n"
+
+    last_modified=$current_modified
+  fi
+
+  sleep 3
+done
+
